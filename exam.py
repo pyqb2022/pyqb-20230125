@@ -48,14 +48,29 @@ import arviz as az   # type: ignore
 #
 # Load the data in a pandas dataframe and make a `bool` column `pig_sighting` which is `True` iff the pig was detected from a pig sighting site. Use the first column as index.
 
-pass
+data = pd.read_csv('pigs.csv', index_col=0)
+data['pig_sighting'] = data['DETECTED'].astype('bool')
+data.head()
 
 # ### Exercise 2 (max 4 points)
 #
 # Make a figure with the three histograms of the distances from the borders. Add a proper title and a legend.
 #
 
-pass
+# +
+fig, ax = plt.subplots()
+
+ax.hist(data['borderMI'], bins='auto', density=True,
+        label='Distance from Michigan', alpha=.75)
+ax.hist(data['borderNY'], bins='auto', density=True,
+        label='Distance from New York', alpha=.75)
+ax.hist(data['borderQC'], bins='auto', density=True,
+        label='Distance from Quebec', alpha=.75)
+ax.set_title('Distance from the borders')
+_ = ax.legend()
+
+
+# -
 
 # ### Exercise 3 (max 7 points)
 #
@@ -63,7 +78,17 @@ pass
 #
 # To get the full marks, you should declare correctly the type hints and add a test within a doctest string.
 
-pass
+def area(a: float, b: float, c: float) -> float:
+    """Return the area of the circle built with max among a,b,c.
+
+    >>> abs(area(1000.0, 2000.0, 3000.0) - 9*np.pi) < 10**-5 
+    True
+
+    """
+
+    m = max(a, b, c) / 1000
+    return np.pi*m**2
+
 
 # ### Exercise 4 (max 4 points)
 #
@@ -71,25 +96,27 @@ pass
 #
 # To get the full marks avoid the use of explicit loops.
 
-pass
+data['area'] = data.apply(lambda row: area(row['borderMI'], row['borderNY'], row['borderQC']), axis=1)
+data.head()
 
 # ### Exercise 5 (max 4 points)
 #
 # Print the mean `dist_boar` and the mean `dist_pig` for wild boars and domesticated detected in pig sighting sites. All domesticated (pot bellied or not) pigs should be considered together.
 
-pass
+data['type'] = data['PigType'].str.slice(0, len('domesticated'))
+data[data['pig_sighting']].groupby(['type'])[['dist_boar', 'dist_pig']].mean()
 
 # ### Exercise 6 (max 3 points)
 #
 # Make a scatter plot of `dist_boar` vs. `dist_pig`. Pigs detected in a pig sighting site should appear in red, the others in blue.
 
-pass
+_ = data.plot.scatter('dist_boar', 'dist_pig', c=data['pig_sighting'].map({True: 'red', False: 'blue'}))
 
 # ### Exercise 7 (max 3 points)
 #
 # Sample 5 pigs among the "wild boars" and print, in ascending order of `dist_pig`, their `borderMI`.  
 
-pass
+data.loc[np.random.choice(data.index, size=5)].sort_values(by='dist_pig')[['dist_pig', 'borderMI']]
 
 # ### Exercise 8 (max 5 points)
 #
@@ -107,4 +134,12 @@ pass
 #
 
 
-pass
+with pm.Model() as model:
+    mu = pm.Normal('mu', 170_000, 100_000)
+    sigma = pm.Exponential('sigma', 1)
+    x = pm.Normal('x', mu=mu, sigma=sigma, observed=data[data['PigType']=='wild boar']['borderQC'])
+
+    idata = pm.sample()
+
+az.summary(idata)
+
